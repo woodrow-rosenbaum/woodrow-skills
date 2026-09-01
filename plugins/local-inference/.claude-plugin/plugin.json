@@ -1,0 +1,17 @@
+{
+  "name": "local-inference",
+  "version": "1.0.0",
+  "description": "Operate local GPU inference (LM Studio / llama-server / Ollama) across one or more GPUs in any project. Triggers whenever the user mentions local models, running Qwen/Llama/Mistral/DeepSeek locally, wanting to use their GPU(s), multi-GPU parallel jobs, or running AI inference without the cloud. Covers autonomous server startup, model parameter selection, parallel work assignment, QA/validation passes, caching, and error handling \u2014 the methodology, not a project scaffold.",
+  "author": {
+    "name": "Woodrow Rosenbaum"
+  },
+  "license": "MIT",
+  "keywords": [
+    "llm",
+    "local-inference",
+    "gpu",
+    "llama.cpp",
+    "lm-studio",
+    "ollama"
+  ]
+}
