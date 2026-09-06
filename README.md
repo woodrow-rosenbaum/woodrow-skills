@@ -1,6 +1,7 @@
 # woodrow-skills
 
-A small Claude Code marketplace. Currently one plugin: **local-inference**.
+A small Claude Code marketplace. Currently two plugins: **local-inference** and
+**resource-raiser**.
 
 ## local-gpu-inference
 
@@ -80,6 +81,53 @@ holds what doesn't, carries a review date, and says so at the top.
 
 Corrections to `reference/models.md` are especially welcome — that file ages
 fastest. Issues and PRs both fine.
+
+## resource-raiser
+
+Routes natural-language questions about US nonprofits and public data (501(c)(3)
+status, IRS Form 990 financials, Census demographics, CDC PLACES health stats,
+Treasury figures, USASpending awards, NIH grants, College Scorecard, FEMA
+declarations) to a local [TechSoup/resource-raiser](https://github.com/TechSoup/resource-raiser)
+deployment instead of a web search or a training-data guess — grounded, cited,
+and typically free to run.
+
+It only activates if it can actually find a deployment in the current project;
+otherwise it steps out of the way. It also knows to distrust certain answer
+shapes: a documented, reproducible bug (a rolling multi-year IRS total getting
+reported as if it were a single year's figure, with nothing downstream catching
+the mislabel) is recorded in `reference/known-issues.md` so the skill flags it
+instead of repeating it with false confidence.
+
+### Install
+
+```
+/plugin marketplace add woodrow-rosenbaum/woodrow-skills
+/plugin install resource-raiser@woodrow-skills
+```
+
+### Assumptions
+
+- A resource-raiser deployment already exists somewhere the project documents
+  (its own CLAUDE.md/README, or a `resource-raiser/` checkout plus launcher
+  scripts). This skill doesn't stand one up from nothing.
+- The deployment exposes the standard `/health` and `/ask` endpoints.
+
+### Layout
+
+```
+plugins/resource-raiser/
+├── .claude-plugin/plugin.json
+└── skills/resource-raiser-query/
+    ├── SKILL.md              methodology — the durable part
+    └── reference/
+        ├── deployment.md     one worked example; dated, expected to go stale
+        └── known-issues.md   trust-calibration caveats; dated
+```
+
+### Contributing
+
+If you find a resource-raiser answer that looked right but wasn't, corrections
+to `reference/known-issues.md` are especially welcome.
 
 ## License
 

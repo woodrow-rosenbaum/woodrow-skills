@@ -10,6 +10,12 @@
       "source": "./plugins/local-inference",
       "description": "Operate local GPU inference (LM Studio / llama-server / Ollama) across one or more GPUs in any project. Triggers whenever the user mentions local models, running Qwen/Llama/Mistral/DeepSeek locally, wanting to use their GPU(s), multi-GPU parallel jobs, or running AI inference without the cloud. Covers autonomous server startup, model parameter selection, parallel work assignment, QA/validation passes, caching, and error handling \u2014 the methodology, not a project scaffold.",
       "version": "1.0.0"
+    },
+    {
+      "name": "resource-raiser",
+      "source": "./plugins/resource-raiser",
+      "description": "Answer natural-language questions from connected US government/nonprofit public datasets (nonprofit status, IRS 990 financials, Census, CDC PLACES, Treasury, USASpending, NIH RePORTER, College Scorecard, FEMA) using a local TechSoup/resource-raiser deployment instead of internet research. Detects whether the project has such a deployment, brings its local model stack up if needed, queries it, and calibrates trust in the answer by response shape.",
+      "version": "1.0.0"
     }
   ]
 }

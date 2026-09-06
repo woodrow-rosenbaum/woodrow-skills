@@ -1,0 +1,19 @@
+{
+  "name": "resource-raiser",
+  "version": "1.0.0",
+  "description": "Answer natural-language questions from connected US government/nonprofit public datasets (nonprofit status, IRS 990 financials, Census, CDC PLACES, Treasury, USASpending, NIH RePORTER, College Scorecard, FEMA) using a local TechSoup/resource-raiser deployment instead of internet research. Detects whether the project has such a deployment, brings its local model stack up if needed, queries it, and calibrates trust in the answer by response shape.",
+  "author": {
+    "name": "Woodrow Rosenbaum"
+  },
+  "license": "MIT",
+  "keywords": [
+    "resource-raiser",
+    "nonprofit",
+    "irs-990",
+    "census",
+    "public-data",
+    "nlweb",
+    "ard",
+    "okf"
+  ]
+}
