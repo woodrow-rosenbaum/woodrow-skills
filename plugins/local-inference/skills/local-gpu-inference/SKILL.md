@@ -1,6 +1,6 @@
 ---
 name: "local-gpu-inference"
-description: "Operate local GPU inference (LM Studio / llama-server / Ollama) across one or more GPUs in any project. Triggers whenever the user mentions local models, running Qwen/Llama/Mistral/DeepSeek locally, wanting to use their GPU(s), multi-GPU parallel jobs, or running AI inference without the cloud. Covers autonomous server startup, model parameter selection, parallel work assignment, QA/validation passes, caching, and error handling — the methodology, not a project scaffold."
+description: "Operate local GPU inference (LM Studio / llama-server / Ollama) across one or more GPUs in any project. Triggers whenever the user mentions local models, running Qwen/Llama/Mistral/DeepSeek locally, wanting to use their GPU(s), multi-GPU parallel jobs, or running AI inference without the cloud. Covers autonomous server startup, mandatory VRAM fit checks so no GPU is overrun, model parameter selection, parallel work assignment across GPUs and CPU, QA/validation passes, caching, and error handling — the methodology, not a project scaffold."
 ---
 
 # Local GPU Inference — Operating Methodology
@@ -24,7 +24,10 @@ BACKEND      llama-server | LM Studio | Ollama
 LAUNCHERS    path to the per-GPU start scripts (see reference/launchers.md)
 MODEL_ID     as the backend reports it at /v1/models
 MODEL_CARD   where the model's own sampling guidance lives — you will need it
-VRAM_PER_GPU used for context and quant sizing decisions
+VRAM_PER_GPU nominal size only. Sizing uses *measured free* VRAM (§1a), which
+             is lower: a GPU driving a display typically loses 1–2 GB to it.
+THERMALS     where to read GPU / coolant temps (nvidia-smi at minimum; a sensor
+             MCP server if the machine has one)
 ```
 
 Never hardcode ports, paths, or model names into scripts. Read them from config
@@ -61,6 +64,68 @@ def wait_healthy(endpoints, tries=40, delay=5):
 
 If no launcher scripts exist yet, ask where the model file is and write them.
 See `reference/launchers.md`.
+
+---
+
+## 1a. Fit before you load — mandatory, every load
+
+**Goal: no GPU is ever overrun.** A model must fit *comfortably* on the GPU it
+is meant for, with headroom, before it is loaded. Overrun doesn't always fail
+loudly: backends quietly split a model across cards, push layers to the CPU,
+or (on Windows) the driver spills into shared system memory. Any of these
+wrecks throughput and defeats per-GPU work assignment (§3). So check first,
+then verify.
+
+**1. Measure.** Free VRAM per GPU, right now. Don't assume the nominal size.
+```bash
+nvidia-smi --query-gpu=index,memory.used,memory.total,temperature.gpu --format=csv
+```
+
+**2. Budget.** Run `reference/fit_check.py MODEL.gguf --ctx N [--parallel P]`.
+It reads the model's own GGUF metadata and adds up:
+- weights (the file size)
+- any vision projector (`mmproj-*.gguf` in the same folder)
+- the KV cache: 2 × KV heads × head dim × context × bytes, summed over
+  *attention* layers only. Hybrid models (e.g. Qwen3.5+ `qwen35`, full attention
+  every 4th layer) need far less than dense ones. Sliding-window layers cap at
+  the window. `--parallel` multiplies it.
+- about 1 GB of overhead
+
+The total must sit **at or under 85% of that one GPU's free VRAM**. That margin
+is the "comfortably" part, and it is not optional.
+Don't trust backend estimates alone: `lms load --estimate-only` has been seen
+reporting the same figure at 8k and 32k context (i.e. ignoring the KV cache).
+
+**3. If it doesn't fit**, in this order:
+1. Shorter context (size it to the job, §2).
+2. Quantized KV cache (q8_0 ≈ half of f16), where the backend supports it.
+3. A smaller quant of the same model, or a smaller model.
+4. **Deliberate** CPU offload: a chosen number of layers (or MoE experts,
+   `reference/models.md`) in system RAM. Plan the speed cost: offloaded work
+   runs at RAM bandwidth.
+5. Span both GPUs, but only as a conscious choice: it forfeits §3's
+   one-job-per-GPU layout.
+
+Never "load it and see". Never rely on silent spill.
+
+**4. Place.** Put the model on the GPU the plan says. llama-server / Ollama:
+`CUDA_VISIBLE_DEVICES`. LM Studio: its GPU split settings are **global**, and
+its default strategy splits every model across all GPUs
+(`reference/launchers.md`). Check the setting before assuming one-model-per-GPU.
+
+**5. Verify after loading.** Re-run `nvidia-smi`. Confirm the memory landed on
+the intended GPU(s), in about the amount budgeted, and that nothing spilled
+(LM Studio: keep "strict VRAM cap" on). If it spread or spilled, unload and
+fix the plan.
+
+**6. Thermals.** Before a long or heavy run, check GPU temps (and coolant, if
+available). During it, spot-check. Back off *before* thermal limits. A run
+that pins the fans at maximum is itself a sign to lighten the load.
+
+**CPU as a first-class worker.** Embeddings, rerankers, small classifiers and
+pre- or post-processing can often run on the CPU and leave a GPU free for the
+big model. Do it when it's expedient, meaning the CPU speed is acceptable for
+the job.
 
 ---
 
@@ -106,7 +171,8 @@ cache and can cause the model to pad or ramble.
 The server's `--ctx-size` is a hard limit. If prompt + expected output might
 exceed it, chunk the input — don't let the model silently truncate. Keep total
 tokens under ~85% of `--ctx-size`. For long-context work, raise `--ctx-size` at
-launch and reduce GPU layers slightly if VRAM is tight.
+launch, and **re-run the fit check (§1a)**. A longer context grows the KV
+cache, and "drop a few GPU layers" is an unplanned CPU offload, not a fix.
 
 ### Other parameters
 
@@ -146,7 +212,8 @@ context window. Assign by job character, not round-robin:
 | QA / validation pass | B | Runs simultaneously while A does other work |
 | Any script you write | passed explicitly | Never round-robin a long-running job |
 
-**This whole section assumes each GPU holds its own copy of a model.** A model
+**This whole section assumes each GPU holds its own copy of a model**, and
+that §1a confirmed it fits on one card with margin. A model
 too large to fit twice — most large mixture-of-experts models, anything relying
 on expert offload to system RAM — collapses to a single instance spanning all
 GPUs. Parallelism then comes from continuous batching within that one server,

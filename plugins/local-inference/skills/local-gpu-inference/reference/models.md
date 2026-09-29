@@ -47,9 +47,26 @@ expect for the answer alone.
 
 ## Sizing a model to available VRAM
 
-Dense models: total parameters × bits-per-weight ÷ 8 ≈ weight size in GB, plus
-KV cache. At Q4_K_M, roughly 0.55–0.6 GB per billion parameters. Leave several
-GB of headroom per GPU for the KV cache — more for long contexts.
+Use `fit_check.py` (SKILL.md §1a). It reads the architecture from the GGUF
+itself. The arithmetic, for reasoning about options:
+
+- **Weights:** the GGUF file size. As a rule of thumb, Q4_K_M ≈ 0.55–0.6 GB per
+  billion parameters and Q8_0 ≈ 1.06.
+- **KV cache per token:** 2 × KV heads × head dim × bytes (2 for f16), summed
+  over attention layers. Multiply by context length and by parallel sequences.
+- **Hybrid architectures change this a lot.** Qwen3.5+ (`qwen35`) uses full
+  attention only every 4th layer. The rest are linear/recurrent layers with a
+  small fixed state. Measured on Qwen3.8-27B Q4_K_M at 32k context: about 2 GiB
+  of KV, where a dense model of that size would need several times more. The
+  script's budget of 19.7 GiB compared with about 18.5 GiB actually used.
+- **Vision models** load an `mmproj` projector too (about 0.9 GB for Qwen3.8-27B).
+- **Budget to 85% of measured free VRAM.** A card driving the display has
+  1–2 GB less than its nominal size.
+
+Worked example, 2× RTX 4090, one of them driving the desktop (about 22.5 GiB free):
+Qwen3.8-27B Q4_K_M at 32k needs about 19.7 GiB. That doesn't fit comfortably
+on the display GPU (19.1 usable) and only just fits the other (20.4 usable).
+At 16k it fits both. The Q8_0 (about 31 GiB) fits neither card alone.
 
 Mixture-of-experts models need different arithmetic, and it is easy to get
 wrong in a way that costs real throughput:

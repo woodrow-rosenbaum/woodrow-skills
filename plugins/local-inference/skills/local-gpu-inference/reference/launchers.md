@@ -51,10 +51,22 @@ starts the server:
 lms server start --port 1234
 ```
 
-LM Studio manages device placement itself — use its GPU controls to pin a model
-to a specific card rather than `CUDA_VISIBLE_DEVICES`. Enable flash attention
-and, for models that fit, limit offload to dedicated VRAM so nothing spills into
-shared memory.
+LM Studio manages device placement itself; `CUDA_VISIBLE_DEVICES` doesn't apply.
+Know what it will do before loading:
+
+- **GPU split is a global setting, not per model.** It's stored in
+  `~/.lmstudio/.internal/hardware-config.json` under `load.gpuSplitConfig`
+  (`strategy`, `disabledGpus`, `priority`). The default `"strategy": "tensor"`
+  splits **every** model across all GPUs, so a model that would fit on one card
+  still lands on both. `lms load` has no per-GPU flag: `--gpu` is an offload
+  *ratio* (`off` / `max` / 0–1), not a device.
+- To get one model per GPU, change the split strategy or priority in the app's
+  GPU settings, or use llama-server per GPU. Either way, confirm placement with
+  `nvidia-smi` after loading (SKILL.md §1a step 5).
+- Keep `load.gpuStrictVramCap` on, so nothing spills into shared system memory.
+- `lms load --estimate-only` gives a quick estimate, but has been seen ignoring
+  context length (same figure at 8k and 32k). Use `fit_check.py` for the budget.
+- Enable flash attention.
 
 ## Ollama
 
@@ -72,7 +84,7 @@ same as the others. Note that `MODEL_ID` must match the Ollama tag exactly.
 | Flag | Use |
 |---|---|
 | `--ctx-size` | Hard context limit. Raise for long-input work; costs VRAM. |
-| `--n-gpu-layers` | Layers on GPU. `99` means "all that fit". |
+| `--n-gpu-layers` | Layers on GPU. `99` means "try all of them". It does **not** check that they fit; on Windows the driver may spill into shared memory instead of failing. Run `fit_check.py` first. |
 | `--n-cpu-moe N` | MoE only: keep experts for N layers in system RAM. |
 | `--override-tensor` | Regex tensor placement, when layer-level control is too coarse. |
 | `--tensor-split` | Ratio across GPUs when one model spans several cards. |
