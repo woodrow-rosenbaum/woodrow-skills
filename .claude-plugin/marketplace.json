@@ -16,6 +16,12 @@
       "source": "./plugins/resource-raiser",
       "description": "Answer natural-language questions from connected US government/nonprofit public datasets (nonprofit status, IRS 990 financials, Census, CDC PLACES, Treasury, USASpending, NIH RePORTER, College Scorecard, FEMA) using a local TechSoup/resource-raiser deployment instead of internet research. Detects whether the project has such a deployment, brings its local model stack up if needed, queries it, and calibrates trust in the answer by response shape.",
       "version": "1.0.0"
+    },
+    {
+      "name": "flight-ops",
+      "source": "./plugins/flight-ops",
+      "description": "Answer live flight and airport questions for a frequent flyer: is my flight OK, where is the inbound aircraft, what's the weather or ATC picture at an airport, what are my fallback flights, what does a delay collide with. Uses FlightAware AeroAPI, aviation weather (TAF/METAR), FAA NAS status, flight search, the traveller's own booking feeds and calendars, and optional ACARS/ADS-B sources. Read-only by default; never books.",
+      "version": "1.0.0"
     }
   ]
 }

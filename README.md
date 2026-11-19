@@ -1,7 +1,7 @@
 # woodrow-skills
 
-A small Claude Code marketplace. Currently two plugins: **local-inference** and
-**resource-raiser**.
+A small Claude Code marketplace. Currently three plugins: **local-inference**,
+**resource-raiser** and **flight-ops**.
 
 ## local-gpu-inference
 
@@ -128,6 +128,44 @@ plugins/resource-raiser/
 
 If you find a resource-raiser answer that looked right but wasn't, corrections
 to `reference/known-issues.md` are especially welcome.
+
+## flight-ops
+
+Answers "is my flight OK?" the way an ops desk would rather than the way an
+airline app does. It reads FlightAware AeroAPI for the real operational state,
+follows the inbound aircraft to work out how much turn margin is actually left,
+checks TAF/METAR and FAA NAS status (and knows where each one lies to you: stale
+caches, a status feed that silently omits ground stops), and vets fallback
+flights operationally before recommending one, not just by schedule.
+
+Read-only by default, and it never books.
+
+### Install
+
+```
+/plugin marketplace add woodrow-rosenbaum/woodrow-skills
+/plugin install flight-ops@woodrow-skills
+```
+
+### Assumptions
+
+- A FlightAware AeroAPI key, and an environment that can reach
+  `aeroapi.flightaware.com`. Everything else degrades gracefully.
+- A private config describing *your* booking feed, calendars, credential
+  locations, contacts and travel preferences. Copy
+  `reference/config.example.md`, fill it in, and keep it out of any shared repo.
+  The skill itself holds no personal data.
+
+### Layout
+
+```
+plugins/flight-ops/
+├── .claude-plugin/plugin.json
+└── skills/flight-ops/
+    ├── SKILL.md                methodology — sources, arithmetic, traps
+    └── reference/
+        └── config.example.md   template for your private config
+```
 
 ## License
 

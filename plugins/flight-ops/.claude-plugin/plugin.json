@@ -1,0 +1,17 @@
+{
+  "name": "flight-ops",
+  "version": "1.0.0",
+  "description": "Answer live flight and airport questions for a frequent flyer: is my flight OK, where is the inbound aircraft, what's the weather or ATC picture at an airport, what are my fallback flights, what does a delay collide with. Uses FlightAware AeroAPI, aviation weather (TAF/METAR), FAA NAS status, flight search, the traveller's own booking feeds and calendars, and optional ACARS/ADS-B sources. Read-only by default; never books.",
+  "author": {
+    "name": "Woodrow Rosenbaum"
+  },
+  "license": "MIT",
+  "keywords": [
+    "aviation",
+    "flightaware",
+    "aeroapi",
+    "travel",
+    "weather",
+    "taf"
+  ]
+}
