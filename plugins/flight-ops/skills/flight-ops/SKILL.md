@@ -86,7 +86,7 @@ Consumer weather apps are corroboration only; they carry no ceiling, visibility 
 
 ## 4. Fallback flights
 
-- Search with a flight-search tool by origin, destination and date; page through results and filter explicitly for early and late departures, because lists truncate. Codeshares often show only the marketing number — say so.
+- Get schedules and fare inventory from a flight-search tool (section 9 has the Expedia connector's mechanics), and the real operating picture from AeroAPI's airport departure boards. Page through results and filter explicitly for early and late departures, because lists truncate. Codeshares often show only the marketing number — say so.
 - **Vet before recommending**: run section 2 on the primary option and a couple of alternatives inside the AeroAPI window. Outside it, label them unvetted.
 - Count the same-day outs left behind each option, including the city's other airports. Say plainly when their flight is the last of the day — then holding an earlier seat beats waiting for certainty.
 - Include "go later / next morning / don't travel tonight" whenever a delay pushes past midnight. Give each option's cost and what it protects; let the traveller choose.
@@ -123,3 +123,54 @@ Software and memory both lag here; check against the current tz database.
 - **Model weather** (e.g. Open-Meteo) for hours no TAF covers yet — a lower-confidence lead, never a TAF substitute.
 
 Say which source each claim rests on whenever it's one of these.
+
+## 9. Tool reference
+
+Names below are as they appear in Claude's connector directory. Use whichever ones the session actually has, and load deferred tools before calling them.
+
+### Schedules and inventory — Expedia connector (`search_flights`)
+- Key params: `origin`, `destination` (IATA), `departure_date` (YYYY-MM-DD), `adult_count`, `number_of_stops` (0 = nonstop only), `filter_nearby_airport` (true pulls in the city's other airports — leave it on for multi-airport cities), `limit` (up to 50), `offset` to page, `user_locale`, `query_text` (the user's request, verbatim).
+- **"Every flight X–Y tomorrow"**: nonstops first (`number_of_stops: 0`, `limit: 50`), then page with `offset` until a page comes back short. Rerun with stops allowed only if nonstops are thin.
+- What comes back: departure and arrival times (local), operating and marketing carrier, flight numbers, stops, duration, cheapest listed fare per itinerary. Fares are usually the **lowest bookable fare**, often basic economy. Label them as "from $X, market shape" and never as what a changeable or premium fare costs.
+- **Inventory**: a returned fare means *some* seat is sellable in that fare family. It is not a seat count, not cabin availability, and not award space. For "is there room in business" or "will I clear an upgrade", say the connector can't see it, and point to the airline's own site or the premium desk.
+- Codeshares: regional and partner metal often appears only under the marketing number (e.g. a United-operated flight listed as AC4xxx). Say which is which. To find the operating ident, run the flight through AeroAPI.
+- Returns are search, not booking. Never follow a booking link on the user's behalf.
+
+### Schedule cross-check — AeroAPI airport boards
+`/airports/{ICAO}/flights/scheduled_departures?start=…&end=…` (filter by destination in code) gives every operating flight on a route, including ones a booking engine doesn't sell, with tails once assigned. It costs queries, so use it for "what's actually flying", not as a first search.
+
+### Bulk tails without burning API budget — FlightAware in a browser
+Open `flightaware.com/live/flight/<ICAO ident>`. `window.trackpollBootstrap.flights` → `activityLog.flights[]` lists recent and upcoming operations, each with a `flightId`. Fetch `/live/flight/id/<flightId>` and parse its embedded bootstrap for `aircraft` and `inboundFlight.flightId`, then walk one leg back. Script this in-page with the browser tool's JavaScript execution so a whole route's tails come back in one pass.
+
+### Mail — Gmail connector
+- `search_threads` for the sweep (`from:(domain1 OR domain2) newer_than:2d`), then `get_thread` on every candidate. Search previews show only the oldest ~5 messages of a thread, and the newest message is the one you need.
+- Also search `in:sent to:<airline domains>` for the traveller's own change requests.
+- Keyword search (`cancelled OR "schedule change" OR rebooked`) catches carriers missing from the sender list. Use it as well as the sender sweep, never instead of it.
+
+### Calendars — Google Calendar connector
+- `list_events` with a tight `timeMin`/`timeMax` around the disruption. Busy work calendars overflow tool output over long windows.
+- Itinerary-feed imports (TripIt and similar) are read-only. Edits are discarded on the next sync.
+- Read each event's own UTC offset; don't apply the calendar's default zone.
+
+### Ground transit — Uber connector
+`get_estimates_between_two_locations_claude` gives live ride ETA and price between two addresses or airports. Use it for "can I make it from the venue to the airport" instead of a static figure.
+
+### Weather corroboration — AccuWeather connector
+Current conditions, hourly and MinuteCast help with "is it snowing at the airport right now". They carry no ceiling, visibility or forecast validity, so never use them in place of a TAF/METAR.
+
+### Messaging
+- **Email**: Gmail `send_message`. Use `replyThreadId` to answer inside an existing thread.
+- **SMS**: Twilio via an automation platform (e.g. Zapier's Twilio "Send SMS" action: inspect the action, then execute it), or Zapier's built-in "SMS by Zapier", which only reaches the account owner's verified number. Each send costs automation tasks, so text only when an email won't do.
+- **Push**: the session's push-notification tool, if it has one. Respect quiet hours.
+- **Headers you can't set from a fetch tool**: an automation platform's webhook action (`custom_request` with headers) can make an authenticated GET when the shell can't reach a host. It costs tasks, so say when you used it.
+
+## 10. Running it unattended
+
+If you turn this into a scheduled watch:
+
+- **Cadence by time to departure**, not a flat interval: hourly inside ~24 h, every few hours at 1–3 days, a few times a day at 3–10 days, once a day beyond that. Query AeroAPI only inside ~24 h, and hourly from 6 h out until `actual_in`.
+- **State outside the prompt.** Keep tracked flights, what has been sent to whom, and the query counter in a page or file the run reads first. A static prompt can't know what it already said.
+- **Check before every send.** Look in the sent folder and at the state record immediately before each message, and write the record immediately after. Duplicates, especially to people other than the traveller, destroy trust fastest.
+- **Quiet hours.** Hold non-urgent findings overnight unless the flight departs within ~12 h.
+- **Report bar.** Report reshaping changes only: cancellation, involuntary rebooking, a schedule change that matters, a delay that breaks something, a cabin downgrade. Skip gate changes, on-time notices, and anything the airline app already pushes.
+- **Never let a run write policy.** A run records observations with dates. Rules belong to the human.

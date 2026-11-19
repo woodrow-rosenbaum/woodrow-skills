@@ -162,7 +162,7 @@ Read-only by default, and it never books.
 plugins/flight-ops/
 ├── .claude-plugin/plugin.json
 └── skills/flight-ops/
-    ├── SKILL.md                methodology — sources, arithmetic, traps
+    ├── SKILL.md                methodology, arithmetic, traps, tool reference
     └── reference/
         └── config.example.md   template for your private config
 ```
